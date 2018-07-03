@@ -1,0 +1,2 @@
+# nominatim-docker
+Nominatim Docker
