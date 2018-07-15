@@ -1,0 +1,55 @@
+version: '2.1'
+
+services:
+  apache:
+    image: hammermc/nominatim
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=supersecret
+    command: apache.sh
+    volumes:
+      - data:/data
+      - run:/run
+    tmpfs:
+      - /tmp
+    ports:
+      - 8088:80
+    depends_on:
+      - initdb
+
+  postgres:
+    image: hammermc/nominatim
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=supersecret
+    volumes:
+      - data:/data
+      - postgres-data:/var/lib/postgresql/data
+      - run:/run
+    tmpfs:
+      - /tmp
+
+  initdb:
+    image: hammermc/nominatim
+    restart: on-failure
+    command: initdb.sh
+    environment:
+      - POSTGRES_PASSWORD=supersecret
+      - OSM_PBF_URL=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf
+      - OSM2PGSQLCACHE=20000 #20gigs used only during init
+      - REDOWNLOAD
+      - REINITDB
+    volumes:
+      - data:/data
+      - postgres-data:/var/lib/postgresql/data
+      - run:/run
+    tmpfs:
+      - /tmp
+    depends_on:
+      - postgres
+
+volumes:
+  data:
+  postgres-data:
+  run:
+
