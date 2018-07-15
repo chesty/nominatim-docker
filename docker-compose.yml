@@ -2,7 +2,7 @@ version: '2.1'
 
 services:
   apache:
-    image: hammermc/nominatim
+    image: hammermc/nominatim-docker
     restart: always
     environment:
       - POSTGRES_PASSWORD=supersecret
@@ -18,7 +18,7 @@ services:
       - initdb
 
   postgres:
-    image: hammermc/nominatim
+    image: hammermc/nominatim-docker
     restart: always
     environment:
       - POSTGRES_PASSWORD=supersecret
@@ -30,7 +30,7 @@ services:
       - /tmp
 
   initdb:
-    image: hammermc/nominatim
+    image: hammermc/nominatim-docker
     restart: on-failure
     command: initdb.sh
     environment:
