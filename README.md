@@ -17,16 +17,7 @@ docker-compose up --no-start
 docker-compose start postgres
 # wait for postgres to finish initialising
 docker-compose down
-# then edit the postgresql.conf in the postgres-data volume with suitable values for your
-# environment, make sure you include the following line below somewhere in the postgresql.conf file
-
-#addedConfig don't remove this line
-
-# initdb.sh checks for the string '#addedConfig' in postgresql.conf and if it doesn't find it, 
-# it appends extra settings to it, if you've already edited postgresql.conf with suitable settings
-# you don't want that.
-
+# then edit the postgresql.conf in the postgres-data volume with suitable values for your environment.
 docker-compose up -d
 
 ```
-

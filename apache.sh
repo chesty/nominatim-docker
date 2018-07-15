@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sleep 5
+sleep 10 # give it sometime for initdb.sh to start and remove an old /data/initdb.ready if it exists.
 until test -f /data/initdb.ready; do
 	echo waiting on initdb
 	sleep 10
