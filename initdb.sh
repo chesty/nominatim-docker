@@ -15,7 +15,7 @@ done
 # this isn't going to be in effect during init,
 # either inject your own postgresql.conf into the container,
 # or after init, down the containers and edit postgresql.conf
-# in the postgres volume with suitable values for your environment
+# in the postgres-data volume with suitable values for your environment
 if ! grep -q '#addedConfig' /var/lib/postgresql/data/postgresql.conf ; then
 	cat >> /var/lib/postgresql/data/postgresql.conf <<EOL
 
@@ -86,7 +86,7 @@ if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REDOWNLO
 	curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
 	curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
 	cd /data && \
-		md5sum -c australia-latest.osm.pbf.md5 || exit 1
+		md5sum -c "$OSM_PBF".md5 || exit 1
 	gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin https://www.nominatim.org/data/wikipedia_article.sql.bin
 	gosu postgres curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin https://www.nominatim.org/data/wikipedia_redirect.sql.bin
 	REINITDB=1
@@ -95,7 +95,7 @@ fi
 if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REINITDB" ];then
 	gosu postgres dropdb nominatim &> /dev/null
 	cd /Nominatim/build && \
-		gosu postgres ./utils/setup.php --osm-file /data/australia-latest.osm.pbf --all --osm2pgsql-cache "$OSM2PGSQLCACHE"
+		gosu postgres ./utils/setup.php --osm-file "$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE"
 fi
 
 touch /data/initdb.ready
