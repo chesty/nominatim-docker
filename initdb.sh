@@ -38,6 +38,10 @@ if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REDOWNLO
 		https://www.nominatim.org/data/country_grid.sql.gz
 	gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin https://www.nominatim.org/data/wikipedia_article.sql.bin
 	gosu postgres curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin https://www.nominatim.org/data/wikipedia_redirect.sql.bin
+	until ! test -f /data/renderd-initdb.init; do
+		echo waiting on renderd-initdb
+		sleep 5
+	done
 	curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
 	curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
 	cd /data && \
