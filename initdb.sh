@@ -7,6 +7,11 @@ rm -f /data/nominatim-initdb.ready
 : ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
 : ${OSM2PGSQLCACHE:=1000}
 
+if [ -d /postgres/Nominatim/build ]; then
+	rm -rf /postgres/Nominatim/build/*
+	cp -a /Nominatim/build/* /postgres/Nominatim/build
+fi
+
 until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
         echo "Waiting for postgres"
         sleep 5
