@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f /data/initdb.ready
+rm -f /data/nominatim-initdb.ready
 
 : ${OSM_PBF_URL:=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf}
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
@@ -51,4 +51,4 @@ if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REINITDB
 		gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE"
 fi
 
-touch /data/initdb.ready
+touch /data/nominatim-initdb.ready
