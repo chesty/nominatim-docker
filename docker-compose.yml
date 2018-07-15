@@ -13,7 +13,7 @@ services:
     tmpfs:
       - /tmp
     ports:
-      - 8088:80
+      - 80:80
     depends_on:
       - initdb
 
@@ -41,7 +41,6 @@ services:
       - REINITDB
     volumes:
       - data:/data
-      - postgres-data:/var/lib/postgresql/data
       - run:/run
     tmpfs:
       - /tmp
