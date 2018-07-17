@@ -10,6 +10,8 @@ services:
     volumes:
       - data:/data
       - run:/run
+      - ./000-default.conf:/etc/apache2/sites-available/000-default.conf
+      - ./local.php:/Nominatim/build/settings/local.php
     tmpfs:
       - /tmp
     ports:
