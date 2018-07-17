@@ -51,15 +51,4 @@ touch /data/nominatim/nominatim.log && \
 	chgrp www-data /data/nominatim/nominatim.log && \
 	chmod g+wr /data/nominatim/nominatim.log
 
-cd /Nominatim/build && \
-	gosu postgres ./utils/update.php --recompute-word-counts && \
-	gosu postgres ./utils/specialphrases.php --wiki-import > /data/nominatim/specialphrases.sql
-	gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql
-
-if [ -f /data/nominatim/recompute-word-counts ]; then
-	cd /Nominatim/build && \
-		gosu postgres ./utils/update.php --recompute-word-counts &
-	rm /data/nominatim/recompute-word-counts
-fi
-
 exec /usr/sbin/apache2 -DFOREGROUND

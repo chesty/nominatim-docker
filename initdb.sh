@@ -57,7 +57,11 @@ fi
 if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REINITDB" ];then
 	gosu postgres dropdb nominatim &> /dev/null
 	cd /Nominatim/build && \
-		gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE"
+		gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
+		gosu postgres ./utils/update.php --recompute-word-counts && \
+		gosu postgres ./utils/specialphrases.php --wiki-import > /data/nominatim/specialphrases.sql && \
+		gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql
+
 fi
 
 touch /data/nominatim-initdb.ready
