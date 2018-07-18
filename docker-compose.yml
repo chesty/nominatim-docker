@@ -1,4 +1,4 @@
-version: '2.1'
+version: '2.2'
 
 services:
   apache:
@@ -6,12 +6,12 @@ services:
     restart: always
     environment:
       - POSTGRES_PASSWORD=supersecret
-    command: apache.sh
+    command: apache2
     volumes:
       - data:/data
       - run:/run
-      - ./000-default.conf:/etc/apache2/sites-available/000-default.conf
-      - ./local.php:/Nominatim/build/settings/local.php
+      - ./apache/000-default.conf:/etc/apache2/sites-available/000-default.conf
+      - ./apache/local.php:/Nominatim/build/settings/local.php
     tmpfs:
       - /tmp
     ports:
@@ -28,15 +28,15 @@ services:
     volumes:
       - data:/data
       - postgres-data:/var/lib/postgresql/data
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - run:/run
     tmpfs:
       - /tmp
 
   initdb:
     image: hammermc/nominatim-docker
-    restart: on-failure
-    command: initdb.sh
+    restart: "no"
+    command: initdb
     environment:
       - POSTGRES_PASSWORD=supersecret
       - OSM_PBF_URL=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf

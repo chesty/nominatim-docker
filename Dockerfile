@@ -61,11 +61,11 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
 
-COPY local.php /Nominatim/build/settings/
-COPY initdb.sh /usr/local/bin/
-COPY apache.sh /usr/local/bin/
+COPY nominatim-docker-entrypoint.sh /usr/local/bin/
 
 EXPOSE 5432
 EXPOSE 80
 
 WORKDIR /Nominatim/build
+
+ENTRYPOINT ["nominatim-docker-entrypoint.sh"]
