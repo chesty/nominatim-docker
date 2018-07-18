@@ -50,7 +50,7 @@ if [ "$1" == "initdb" ]; then
 	        sleep 5
 	done
 
-	gosu postgres createuser www-data || true
+	gosu postgres createuser www-data &> /dev/null || true
 
 	if [ ! -f /data/nominatim/country_name.sql ]; then
 		cd /Nominatim && \
