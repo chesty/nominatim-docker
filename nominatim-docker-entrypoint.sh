@@ -73,16 +73,18 @@ if [ "$1" == "initdb" ]; then
 		gosu postgres curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin https://www.nominatim.org/data/wikipedia_redirect.sql.bin
 
 		# this is a noop for a standalone nominatim container, it's used in
-		# https://githuub.com/chesty/maps-docker-compose
+		# https://github.com/chesty/maps-docker-compose
 		until ! test -f /data/renderd-initdb.init; do
 			echo waiting on renderd-initdb
 			sleep 5
 		done
 
-		curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
-		curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
-		cd /data && \
-			md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
+		if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
+			curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
+			curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
+			cd /data && \
+				md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
+		fi
 		REINITDB=1
 	fi
 
