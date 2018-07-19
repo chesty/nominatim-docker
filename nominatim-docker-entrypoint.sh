@@ -94,8 +94,8 @@ if [ "$1" == "initdb" ]; then
 			gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
 			gosu postgres ./utils/update.php --recompute-word-counts && \
 			gosu postgres ./utils/specialphrases.php --wiki-import > /data/nominatim/specialphrases.sql && \
-			gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql
-
+			gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql && \
+			gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions
 	fi
 	exit 0
 fi
