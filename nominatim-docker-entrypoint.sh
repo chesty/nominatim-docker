@@ -1,11 +1,21 @@
 #!/bin/bash
 
+echo "starting $@"
+
 : ${OSM_PBF_URL:=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf}
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
 : ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
 : ${OSM2PGSQLCACHE:=1000}
 
-if [ "$1" == "apache2" ]; then
+if [ ! -f /home/postgres/.pgpass ]; then
+	mkdir -p /home/postgres && \
+		touch /home/postgres/.pgpass && \
+		chmod 600 /home/postgres/.pgpass && \
+		chown -R postgres: /home/postgres && \
+		echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> /home/postgres/.pgpass
+fi
+
+if [ "$1" == "nominatim-apache2" ]; then
 	shift
 
 	. /etc/apache2/envvars
@@ -25,17 +35,15 @@ if [ "$1" == "apache2" ]; then
 
 	cd /
 
-
 	mkdir -p "$APACHE_RUN_DIR" && \
 	    rm -f $APACHE_PID_FILE && \
 	    rm -f "$APACHE_LOG_DIR"/error.log "$APACHE_LOG_DIR"/access.log && \
 	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log && \
 	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log && \
 	    exec /usr/sbin/apache2 -DFOREGROUND "$@"
-
 fi
 
-if [ "$1" == "initdb" ]; then
+if [ "$1" == "nominatim-initdb" ]; then
 	shift
 
 	# this is so nominatim.so is available in the postgres container
