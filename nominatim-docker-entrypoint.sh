@@ -45,6 +45,11 @@ fi
 
 if [ "$1" == "nominatim-initdb" ]; then
 	shift
+	# if nominatim-initdv.init exists then the previous initdb didn't complete
+	if [ -f /data/nominatim-initdb.init ]; then
+		REDOWNLOAD=1
+	fi
+	touch /data/nominatim-initdb.init
 
 	# this is so nominatim.so is available in the postgres container
 	# it's not used for standalone
@@ -104,6 +109,23 @@ if [ "$1" == "nominatim-initdb" ]; then
 			gosu postgres ./utils/specialphrases.php --wiki-import > /data/nominatim/specialphrases.sql && \
 			gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql && \
 			gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions
+	fi
+	rm -f /data/nominatim-initdb.init
+	exit 0
+fi
+
+if [ "$1" == "nominatim-updatedb" ]; then
+	shift
+
+	until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
+	        echo "Waiting for postgres"
+	        sleep 5
+	done
+	# don't run update during initdb
+	if [ ! -f /data/nominatim-initdb.init ]; then
+		gosu postgres ./utils/update.php --init-updates
+		gosu postgres ./utils/update.php --import-osmosis
+		gosu postgres ./utils/update.php --recompute-word-counts
 	fi
 	exit 0
 fi
