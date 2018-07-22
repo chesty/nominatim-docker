@@ -49,6 +49,7 @@ RUN apt-get update && \
 		curl \
 		libapache2-mod-php \
 		libboost-filesystem1.62.0 \
+		libboost-python1.62.0 \
 		libboost-system1.62.0 \
 		libproj12 \
         postgresql-10-postgis-2.4 \
