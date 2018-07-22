@@ -22,12 +22,14 @@ RUN apt-get update && \
         postgresql-10-postgis-2.4-scripts \
         postgresql-contrib \
         postgresql-server-dev-10 \
+        python-pip \
         python3-pip \
 		zlib1g-dev
 
 RUN git clone --depth 1 https://github.com/openstreetmap/Nominatim.git
 
 RUN pip3 install osmium
+RUN pip install osmium
 
 RUN cd Nominatim && \
 	git submodule update --recursive --init
@@ -61,6 +63,8 @@ RUN apt-get update && \
 		php-pgsql && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
+
+RUN chown postgres /Nominatim/build
 
 COPY nominatim-docker-entrypoint.sh /usr/local/bin/
 
