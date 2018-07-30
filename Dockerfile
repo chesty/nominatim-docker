@@ -1,5 +1,7 @@
 FROM postgres:10 as buildstage
 
+ENV BUMP 2018073001
+
 RUN apt-get update && \
 	apt-get -y install \
 		build-essential \
