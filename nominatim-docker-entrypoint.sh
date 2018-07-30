@@ -96,7 +96,7 @@ if [ "$1" == "nominatim-initdb" ]; then
 			curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
 			curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
 			cd /data && \
-				md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
+				md5sum -c "$OSM_PBF".md5 || ( rm -f /data/"$OSM_PBF" && exit 1 )
 		fi
 		REINITDB=1
 	fi
