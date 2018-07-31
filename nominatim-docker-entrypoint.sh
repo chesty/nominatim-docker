@@ -53,13 +53,6 @@ if [ "$1" == "nominatim-initdb" ]; then
 	fi
 	touch /data/nominatim-initdb.init
 
-	# this is so nominatim.so is available in the postgres container
-	# it's not used for standalone
-	if [ -d /postgres/Nominatim/build ]; then
-		mkdir -p /postgres/Nominatim/build/module
-		cp /Nominatim/build/module/nominatim.so /postgres/Nominatim/build/module
-	fi
-
 	until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
 	        echo "Waiting for postgres"
 	        sleep 5
@@ -98,7 +91,7 @@ if [ "$1" == "nominatim-initdb" ]; then
 			curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
 			curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
 			cd /data && \
-				md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
+				md5sum -c "$OSM_PBF".md5 || { rm -f /data/"$OSM_PBF"; exit 1; }
 		fi
 		REINITDB=1
 	fi
