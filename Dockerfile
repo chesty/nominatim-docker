@@ -1,4 +1,4 @@
-FROM postgres:10 as buildstage
+FROM postgres:10.4 as buildstage
 
 ENV BUMP 2018073001
 
@@ -43,7 +43,7 @@ RUN cd Nominatim && \
     make && \
     make install
 
-FROM postgres:10 as runstage
+FROM postgres:10.4 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
 COPY --from=buildstage /Nominatim /Nominatim
 
