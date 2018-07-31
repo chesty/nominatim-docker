@@ -20,9 +20,11 @@ if [ "$1" == "nominatim-apache2" ]; then
 
 	. /etc/apache2/envvars
 
-	cd ${APACHE_LOG_DIR} && \
-		ln -sf /dev/stdout access.log && \
-		ln -sf /dev/stdout error.log
+	if [ ! -z "$APACHE_LOG_DIR" ]; then
+		cd ${APACHE_LOG_DIR} && \
+			ln -sf /dev/stdout access.log && \
+			ln -sf /dev/stdout error.log
+	fi
 
 	if [ ! -d /data/nominatim ]; then
 		mkdir /data/nominatim
@@ -79,7 +81,7 @@ if [ "$1" == "nominatim-initdb" ]; then
 		rm -rf data && \
 		ln -s /data/nominatim data && \
 
-	if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REDOWNLOAD" ];then
+	if ! $(echo select 1 | gosu postgres psql nominatim &> /dev/null) || [ "$REDOWNLOAD" ];then
 		gosu postgres curl -L -z /Nominatim/data/country_osm_grid.sql.gz -o /Nominatim/data/country_osm_grid.sql.gz \
 			https://www.nominatim.org/data/country_grid.sql.gz
 		gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin https://www.nominatim.org/data/wikipedia_article.sql.bin
@@ -101,7 +103,7 @@ if [ "$1" == "nominatim-initdb" ]; then
 		REINITDB=1
 	fi
 
-	if ! `echo select 1 | gosu postgres psql nominatim &> /dev/null` || [ "$REINITDB" ];then
+	if ! $(echo select 1 | gosu postgres psql nominatim &> /dev/null) || [ "$REINITDB" ];then
 		gosu postgres dropdb nominatim &> /dev/null
 		cd /Nominatim/build && \
 			gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
