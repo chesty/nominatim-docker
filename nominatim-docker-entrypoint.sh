@@ -39,9 +39,6 @@ if [ "$1" == "nominatim-apache2" ]; then
 
 	mkdir -p "$APACHE_RUN_DIR" && \
 	    rm -f $APACHE_PID_FILE && \
-	    rm -f "$APACHE_LOG_DIR"/error.log "$APACHE_LOG_DIR"/access.log && \
-	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log && \
-	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log && \
 	    exec /usr/sbin/apache2 -DFOREGROUND "$@"
 fi
 
