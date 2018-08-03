@@ -1,6 +1,6 @@
 # nominatim-docker
 
-nominatim dev
+nominatim v3.1.0
 
 It works as a standalone nominatim docker container and it should 
 init to a working install, but it requires some tuning and
