@@ -1,6 +1,6 @@
-FROM postgres:10.4 as buildstage
+FROM postgres:10 as buildstage
 
-ENV BUMP 2018080301
+ENV BUMP 2018100101
 
 RUN apt-get update && \
     apt-get -y install \
@@ -20,6 +20,8 @@ RUN apt-get update && \
         libpq-dev \
         libproj-dev \
         libxml2-dev \
+        php-cli \
+        php-dev \
         postgresql-10-postgis-2.4 \
         postgresql-10-postgis-2.4-scripts \
         postgresql-contrib \
@@ -28,7 +30,7 @@ RUN apt-get update && \
         python3-pip \
         zlib1g-dev
 
-RUN git clone --branch v3.1.0 --depth 1 https://github.com/openstreetmap/Nominatim.git
+RUN git clone --branch v3.2.0 --depth 1 https://github.com/openstreetmap/Nominatim.git
 
 RUN pip3 install osmium
 RUN pip install osmium
@@ -43,7 +45,7 @@ RUN cd Nominatim && \
     make && \
     make install
 
-FROM postgres:10.4 as runstage
+FROM postgres:10 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
 COPY --from=buildstage /Nominatim /Nominatim
 
