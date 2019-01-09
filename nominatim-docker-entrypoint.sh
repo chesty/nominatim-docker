@@ -93,7 +93,8 @@ if [ "$1" == "nominatim-initdb" ]; then
         REINITDB=1
     fi
 
-    if ! $(echo select 1 | gosu postgres psql nominatim &> /dev/null) || [ "$REINITDB" ];then
+    if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
+            gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
         gosu postgres dropdb nominatim &> /dev/null
         cd /Nominatim/build && \
             gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
@@ -122,4 +123,5 @@ if [ "$1" == "nominatim-updatedb" ]; then
     exit 0
 fi
 
+# postgresql container's docker-entrypoint.sh
 exec docker-entrypoint.sh "$@"
