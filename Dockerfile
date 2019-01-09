@@ -1,6 +1,6 @@
 FROM postgres:10 as buildstage
 
-ENV BUMP 2018102201
+ENV BUMP 2019010801
 
 RUN apt-get update && \
     apt-get -y install \
