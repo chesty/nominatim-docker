@@ -1,7 +1,7 @@
 # nominatim-docker
 
 - hammermc/nominatim-docker:latest dev
-- hammermc/nominatim-docker:release-1.3.0 release-v1.3.0
+- hammermc/nominatim-docker:release-3.2.0 release-v3.2.0
 
 It works as a standalone nominatim docker container and it should 
 init to a working install, but it requires some tuning and
