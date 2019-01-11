@@ -42,6 +42,14 @@ if [ "$1" == "nominatim-apache2" ]; then
         exec /usr/sbin/apache2 -DFOREGROUND "$@"
 fi
 
+if [ "$1" == "nominatim-reinitdb" ]; then
+    REINITDB=1 exec $0 nominatim-initdb
+fi
+
+if [ "$1" == "nominatim-redownload" ]; then
+    REDOWNLOAD=1 exec $0 nominatim-initdb
+fi
+
 if [ "$1" == "nominatim-initdb" ]; then
     shift
     # if nominatim-initdv.init exists then the previous initdb didn't complete
@@ -71,7 +79,12 @@ if [ "$1" == "nominatim-initdb" ]; then
         rm -rf data && \
         ln -s /data/nominatim data && \
 
-    if ! $(echo select 1 | gosu postgres psql nominatim &> /dev/null) || [ "$REDOWNLOAD" ];then
+    if [ "$REINITDB" ]; then
+        gosu postgres dropdb nominatim &> /dev/null
+    fi
+
+    if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" | \
+            gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
         gosu postgres curl -L -z /Nominatim/data/country_osm_grid.sql.gz -o /Nominatim/data/country_osm_grid.sql.gz \
             https://www.nominatim.org/data/country_grid.sql.gz
         gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin https://www.nominatim.org/data/wikipedia_article.sql.bin
@@ -95,7 +108,6 @@ if [ "$1" == "nominatim-initdb" ]; then
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
             gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
-        gosu postgres dropdb nominatim &> /dev/null
         cd /Nominatim/build && \
             gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
             gosu postgres ./utils/update.php --recompute-word-counts && \
