@@ -2,20 +2,12 @@
 
 echo "starting $@"
 
-: ${OSM_PBF_URL:=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf}
-: ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
-: ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
-: ${OSM2PGSQLCACHE:=1000}
-
-if [ ! -f /home/postgres/.pgpass ]; then
-    mkdir -p /home/postgres && \
-        touch /home/postgres/.pgpass && \
-        chmod 600 /home/postgres/.pgpass && \
-        chown -R postgres: /home/postgres && \
-        echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> /home/postgres/.pgpass
+if [ -f /usr/local/etc/osm-config.sh ]; then
+    . /usr/local/etc/osm-config.sh
 fi
 
 if [ "$1" == "nominatim-apache2" ]; then
+    echo "$1" called
     shift
 
     . /etc/apache2/envvars
@@ -43,24 +35,28 @@ if [ "$1" == "nominatim-apache2" ]; then
 fi
 
 if [ "$1" == "nominatim-reinitdb" ]; then
+    echo "$1" called, reinitializing nominatim database
     REINITDB=1 exec $0 nominatim-initdb
 fi
 
 if [ "$1" == "nominatim-redownload" ]; then
+    echo "$1" called, redownloading osm files
     REDOWNLOAD=1 exec $0 nominatim-initdb
 fi
 
 if [ "$1" == "nominatim-initdb" ]; then
+    echo "$1" called
     shift
     # if nominatim-initdv.init exists then the previous initdb didn't complete
     if [ -f /data/nominatim-initdb.init ]; then
+        echo "detected previous nominatim-initdb didn't complete, redownlading and reinitialising db"
         REDOWNLOAD=1
     fi
     touch /data/nominatim-initdb.init
 
     until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
             echo "Waiting for postgres"
-            sleep 5
+            sleep 30
     done
 
     gosu postgres createuser www-data &> /dev/null || true
@@ -79,27 +75,35 @@ if [ "$1" == "nominatim-initdb" ]; then
         rm -rf data && \
         ln -s /data/nominatim data && \
 
-    if [ "$REINITDB" ]; then
-        gosu postgres dropdb nominatim &> /dev/null
+    if [ "$REINITDB" -o "$REDOWNLOAD" ]; then
+        echo reinitializing nominatim database, REINITDB="$REINITDB", REDOWNLOAD="$REDOWNLOAD"
+        gosu postgres dropdb nominatim
     fi
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" | \
             gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
         gosu postgres curl -L -z /Nominatim/data/country_osm_grid.sql.gz -o /Nominatim/data/country_osm_grid.sql.gz \
-            https://www.nominatim.org/data/country_grid.sql.gz
-        gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin https://www.nominatim.org/data/wikipedia_article.sql.bin
-        gosu postgres curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin https://www.nominatim.org/data/wikipedia_redirect.sql.bin
+            https://www.nominatim.org/data/country_grid.sql.gz || {
+                echo "error downloading https://www.nominatim.org/data/country_grid.sql.gz, exit 2"; exit 2; }
+        gosu postgres curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin \
+            https://www.nominatim.org/data/wikipedia_article.sql.bin || {
+                echo "error downloading https://www.nominatim.org/data/wikipedia_article.sql.bin, exit 3"; exit 3; }
+        gosu postgres curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin \
+            https://www.nominatim.org/data/wikipedia_redirect.sql.bin|| {
+                echo "error downloading https://www.nominatim.org/data/wikipedia_redirect.sql.bin, exit 4"; exit 4; }
 
         # this is a noop for a standalone nominatim container, it's used in
         # https://github.com/chesty/maps-docker-compose
         until ! test -f /data/renderd-initdb.init; do
             echo waiting on renderd-initdb
-            sleep 5
+            sleep 30
         done
 
         if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
-            curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
-            curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
+            curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL" || {
+                echo "error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
+            curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
+                echo "error downloading $OSM_PBF_URL, exit 8"; exit 8; }
             cd /data && \
                 md5sum -c "$OSM_PBF".md5 || { rm -f /data/"$OSM_PBF"; exit 1; }
         fi
@@ -110,10 +114,12 @@ if [ "$1" == "nominatim-initdb" ]; then
             gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
         cd /Nominatim/build && \
             gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
-            gosu postgres ./utils/update.php --recompute-word-counts && \
             gosu postgres ./utils/specialphrases.php --wiki-import > /data/nominatim/specialphrases.sql && \
             gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql && \
-            gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions
+            gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions && \
+            gosu postgres ./utils/update.php --recompute-word-counts && \
+            gosu postgres ./utils/update.php --init-updates || {
+                echo "error initialising database, exit 5"; exit 5; }
     fi
     rm -f /data/nominatim-initdb.init
     exit 0
@@ -121,17 +127,20 @@ fi
 
 if [ "$1" == "nominatim-updatedb" ]; then
     shift
-
+    sleep 5
     until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
             echo "Waiting for postgres"
-            sleep 5
+            sleep 30
     done
+
     # don't run update during initdb
-    if [ ! -f /data/nominatim-initdb.init ]; then
-        gosu postgres ./utils/update.php --init-updates
-        gosu postgres ./utils/update.php --import-osmosis
-        gosu postgres ./utils/update.php --recompute-word-counts
-    fi
+    until [ ! -f /data/nominatim-initdb.init ]; do
+        echo "$1 waiting for init to finish"
+        sleep 30
+    done
+
+    gosu postgres ./utils/update.php --import-osmosis-all
+
     exit 0
 fi
 
