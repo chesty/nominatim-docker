@@ -6,6 +6,13 @@ if [ -f /usr/local/etc/osm-config.sh ]; then
     . /usr/local/etc/osm-config.sh
 fi
 
+if [ "$1" == "postgres" ]; then
+    exec docker-entrypoint.sh "$@"
+fi
+
+# https://github.com/docker/docker/issues/6880
+cat <> /Nominatim/build/logpipe 1>&2 &
+
 if [ "$1" == "nominatim-apache2" ]; then
     echo "$1" called
     shift
@@ -22,10 +29,6 @@ if [ "$1" == "nominatim-apache2" ]; then
         mkdir /data/nominatim
         chown postgres: /data/nominatim
     fi
-
-    touch /data/nominatim/nominatim.log && \
-        chgrp www-data /data/nominatim/nominatim.log && \
-        chmod g+wr /data/nominatim/nominatim.log
 
     cd /
 
@@ -47,6 +50,7 @@ fi
 if [ "$1" == "nominatim-initdb" ]; then
     echo "$1" called
     shift
+
     # if nominatim-initdv.init exists then the previous initdb didn't complete
     if [ -f /data/nominatim-initdb.init ]; then
         echo "detected previous nominatim-initdb didn't complete, redownlading and reinitialising db"
@@ -128,6 +132,7 @@ fi
 if [ "$1" == "nominatim-updatedb" ]; then
     shift
     sleep 5
+
     until echo select 1 | gosu postgres psql template1 &> /dev/null ; do
             echo "Waiting for postgres"
             sleep 30
