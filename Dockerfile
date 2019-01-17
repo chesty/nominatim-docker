@@ -58,8 +58,10 @@ RUN apt-get update && \
         libboost-python1.62.0 \
         libboost-system1.62.0 \
         libproj12 \
-        postgresql-10-postgis-2.4 \
-        postgresql-10-postgis-2.4-scripts \
+        postgresql-10-pgrouting \
+        postgresql-10-pgrouting-scripts \
+        postgresql-10-postgis \
+        postgresql-10-postgis-scripts \
         postgresql-contrib \
         php-cli \
         php-db \
@@ -69,6 +71,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
 
 RUN chown postgres /Nominatim/build
+RUN mkfifo -m 600 /Nominatim/build/logpipe && \
+    chown www-data /Nominatim/build/logpipe
 
 COPY nominatim-docker-entrypoint.sh /usr/local/bin/
 
