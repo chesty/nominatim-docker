@@ -1,25 +1,6 @@
-version: '2.2'
+version: '3.7'
 
 services:
-  apache:
-    image: hammermc/nominatim-docker
-    restart: always
-    env_file:
-      - osm.env
-    command: nominatim-apache2
-    volumes:
-      - data:/data
-      - run:/run
-      - ./apache/000-default.conf:/etc/apache2/sites-available/000-default.conf
-      - ./apache/local.php:/Nominatim/build/settings/local.php
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /tmp
-    ports:
-      - 80:80
-    depends_on:
-      - initdb
-
   postgres:
     image: hammermc/nominatim-docker
     restart: always
@@ -36,7 +17,9 @@ services:
 
   initdb:
     image: hammermc/nominatim-docker
-    restart: "no"
+    restart: on-failure
+    depends_on:
+      - postgres
     command: nominatim-initdb
     env_file:
       - osm.env
@@ -47,15 +30,16 @@ services:
       - data:/data
       - run:/run
       - ./osm-config.sh:/usr/local/etc/osm-config.sh
+      - ./apache/local.php:/Nominatim/build/settings/local.php
     tmpfs:
       - /tmp
-    depends_on:
-      - postgres
 
 #  edit apache/local.php for correct update settings
   update:
     image: hammermc/nominatim-docker
-    restart: "no"
+    restart: unless-stopped
+    depends_on:
+      - postgres
     command: nominatim-updatedb
     env_file:
       - osm.env
@@ -66,13 +50,31 @@ services:
       - data:/data
       - run:/run
       - ./osm-config.sh:/usr/local/etc/osm-config.sh
+      - ./apache/local.php:/Nominatim/build/settings/local.php
     tmpfs:
       - /tmp
+
+  apache:
+    image: hammermc/nominatim-docker
+    restart: always
     depends_on:
-      - postgres
+      - initdb
+    env_file:
+      - osm.env
+    command: nominatim-apache2
+    volumes:
+      - data:/data
+      - run:/run
+      - ./apache/000-default.conf:/etc/apache2/sites-available/000-default.conf
+      - ./apache/local.php:/Nominatim/build/settings/local.php
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+    tmpfs:
+      - /tmp
+    ports:
+      - 80:80
+
 
 volumes:
   data:
   postgres-data:
   run:
-
