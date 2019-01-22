@@ -74,6 +74,7 @@ if [ "$1" = "nominatim-initdb" ]; then
     done
 
     gosu postgres createuser www-data > /dev/null 2>/dev/null || true
+    gosu postgres createuser -s osm > /dev/null 2>/dev/null || true
 
     if [ ! -f /data/nominatim/country_name.sql ]; then
         echo "Setting up /data/nominatim"
