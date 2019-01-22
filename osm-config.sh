@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo "$0 called"
+
 # these will only be set if they aren't already set
 : ${NPROCS:=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)}
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
