@@ -150,7 +150,7 @@ if [ "$1" = "nominatim-updatedb" ]; then
 
     # don't run update during initdb
     until [ ! -f /data/nominatim-initdb.lock ]; do
-        echo "$1 waiting for init to finish"
+        echo "$1 waiting for nominatim-initdb to finish"
         sleep 30
     done
 
