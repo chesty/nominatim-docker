@@ -1,6 +1,6 @@
 FROM postgres:10 as buildstage
 
-ENV BUMP 2019010801
+ENV BUMP 2019012101
 
 RUN apt-get update && \
     apt-get -y install \
@@ -30,7 +30,7 @@ RUN apt-get update && \
         python3-pip \
         zlib1g-dev
 
-RUN git clone --depth 1 https://github.com/openstreetmap/Nominatim.git
+RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git
 
 RUN pip3 install osmium
 RUN pip install osmium
@@ -70,6 +70,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
 
+RUN useradd -ms /bin/bash osm
 RUN chown postgres /Nominatim/build
 RUN mkfifo -m 600 /Nominatim/build/logpipe && \
     chown www-data /Nominatim/build/logpipe
