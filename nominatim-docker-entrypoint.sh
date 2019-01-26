@@ -2,11 +2,16 @@
 
 set -e
 
-echo "starting $@"
-
 if [ -f /usr/local/etc/osm-config.sh ]; then
     . /usr/local/etc/osm-config.sh
+else
+    log () {
+        echo -n `date "+%Y-%m-%d %H:%M:%S+%Z"` "-- $0: $@"
+    }
+    log "/usr/local/etc/osm-config.sh not found, $0 might error and exit"
 fi
+
+log starting
 
 if [ "$1" = "postgres" ]; then
     exec docker-entrypoint.sh "$@"
@@ -18,7 +23,7 @@ chown osm: /data
 cat <> /Nominatim/build/logpipe 1>&2 &
 
 if [ "$1" = "nominatim-apache2" ]; then
-    echo "$1" called
+    log "$1 called"
     shift
 
     . /etc/apache2/envvars
@@ -41,25 +46,26 @@ if [ "$1" = "nominatim-apache2" ]; then
 fi
 
 if [ "$1" = "nominatim-reinitdb" ]; then
-    echo "$1" called, reinitializing nominatim database
+    log "$1 called, reinitializing nominatim"
     REINITDB=1 exec $0 nominatim-initdb
 fi
 
 if [ "$1" = "nominatim-redownload" ]; then
-    echo "$1" called, redownloading osm files
+    log "$1 called, redownloading files"
     REDOWNLOAD=1 exec $0 nominatim-initdb
 fi
 
 if [ "$1" = "nominatim-initdb" ]; then
-    echo "$1" called
+    log "$1 called"
 
     if [ -f /data/nominatim-initdb.lock ]; then
-        echo "Interrupted $1 detected, rerunning $1"
+        log "$1 detected previous run exited with errors, rerunning"
+
         REDOWNLOAD=1
         eval `grep "reinitcount=[0-9]\+" /data/nominatim-initdb.lock`
         reinitcount=$(( $reinitcount + 1 ))
         if [ "$reinitcount" -gt 2 ]; then
-            echo "$1 has failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
+            log "$1 failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
             sleep $(( $reinitcount * 3600 ))
         fi
         echo "reinitcount=$reinitcount" > /data/nominatim-initdb.lock
@@ -68,16 +74,16 @@ if [ "$1" = "nominatim-initdb" ]; then
         eval `grep "reinitcount=[0-9]\+" /data/nominatim-initdb.lock`
     fi
 
-    until echo select 1 | gosu postgres psql template1 > /dev/null 2> /dev/null ; do
-            echo "Waiting for postgres"
-            sleep 30
+    until echo select 1 | gosu postgres psql template1 > /dev/null 2>1 ; do
+            log "$1 waiting for postgres, sleeping for $WFS_SLEEP seconds"
+            sleep "$WFS_SLEEP"
     done
 
     gosu postgres createuser www-data > /dev/null 2>/dev/null || true
     gosu postgres createuser -s osm > /dev/null 2>/dev/null || true
 
     if [ ! -f /data/nominatim/country_name.sql ]; then
-        echo "Setting up /data/nominatim"
+        log "$1 setting up /data/nominatim"
         cd /Nominatim && \
             gosu osm mkdir -p /data/nominatim && \
             gosu osm cp -a data/* /data/nominatim
@@ -88,37 +94,39 @@ if [ "$1" = "nominatim-initdb" ]; then
         ln -s /data/nominatim data
 
     if [ "$REINITDB" -o "$REDOWNLOAD" ]; then
-        echo reinitializing nominatim database, REINITDB="$REINITDB", REDOWNLOAD="$REDOWNLOAD"
-        gosu postgres dropdb nominatim > /dev/null 2> /dev/null || true
+        log "$1 reinitializing nominatim database, REINITDB=$REINITDB, REDOWNLOAD=$REDOWNLOAD"
+        gosu postgres dropdb nominatim > /dev/null 2>&1 || true
     fi
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" | \
             gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
+        log "$1 downlowding wikipedia and country files"
         gosu osm curl -L -z /Nominatim/data/country_osm_grid.sql.gz -o /Nominatim/data/country_osm_grid.sql.gz \
             https://www.nominatim.org/data/country_grid.sql.gz || {
-                echo "error downloading https://www.nominatim.org/data/country_grid.sql.gz, exit 2"; exit 2; }
+                log "$1 error downloading https://www.nominatim.org/data/country_grid.sql.gz, exit 2"; exit 2; }
         gosu osm curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin \
             https://www.nominatim.org/data/wikipedia_article.sql.bin || {
-                echo "error downloading https://www.nominatim.org/data/wikipedia_article.sql.bin, exit 3"; exit 3; }
+                log "$1 error downloading https://www.nominatim.org/data/wikipedia_article.sql.bin, exit 3"; exit 3; }
         gosu osm curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin \
             https://www.nominatim.org/data/wikipedia_redirect.sql.bin|| {
-                echo "error downloading https://www.nominatim.org/data/wikipedia_redirect.sql.bin, exit 4"; exit 4; }
+                log "$1 error downloading https://www.nominatim.org/data/wikipedia_redirect.sql.bin, exit 4"; exit 4; }
 
         # this is a noop for a standalone nominatim container, it's used in
         # https://github.com/chesty/maps-docker-compose
         until ! test -f /data/renderd-initdb.lock; do
-            echo waiting on renderd-initdb
-            sleep 30
+            log "$1 waiting on renderd-initdb, sleeping for $WFS_SLEEP seconds"
+            sleep "$WFS_SLEEP"
         done
 
         if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
+            log "$1 downloading $OSM_PBF_URL"
             gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL" || {
-                echo "error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
+                log "$1 error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
             gosu osm curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
-                echo "error downloading $OSM_PBF_URL, exit 8"; exit 8; }
+                log "$1 error downloading $OSM_PBF_URL, exit 8"; exit 8; }
             ( cd /data && \
                 md5sum -c "$OSM_PBF".md5 ) || {
-                    echo "md5sum mismatch on /data/$OSM_PBF, exit 1"
+                    log "$1 md5sum mismatch on /data/$OSM_PBF, exit 1"
                     rm -f /data/"$OSM_PBF".md5 /data/"$OSM_PBF"
                     exit 1
                 }
@@ -128,6 +136,7 @@ if [ "$1" = "nominatim-initdb" ]; then
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
             gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
+        log "$1 initialising database"
         cd /Nominatim/build && \
             gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
             gosu postgres ./utils/specialphrases.php --wiki-import | gosu osm tee /data/nominatim/specialphrases.sql > /dev/null && \
@@ -135,24 +144,27 @@ if [ "$1" = "nominatim-initdb" ]; then
             gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions && \
             gosu postgres ./utils/update.php --recompute-word-counts && \
             gosu postgres ./utils/update.php --init-updates || {
-                echo "error initialising database, exit 5"; exit 5; }
+                log "$1 error initialising database, exit 5"; exit 5; }
     fi
     rm -f /data/nominatim-initdb.lock
     exit 0
 fi
 
 if [ "$1" = "nominatim-updatedb" ]; then
+    log "$1 called"
+
+    # give nominatim-initdb time to start and create lock file
     sleep 5
 
-    until echo select 1 | gosu postgres psql template1 > /dev/null 2> /dev/null ; do
-            echo "Waiting for postgres"
-            sleep 30
+    until echo select 1 | gosu postgres psql template1 > /dev/null 2>1 ; do
+            log "$1 waiting for postgres, sleeping for $WFS_SLEEP seconds"
+            sleep "$WFS_SLEEP"
     done
 
     # don't run update during initdb
     until [ ! -f /data/nominatim-initdb.lock ]; do
-        echo "$1 waiting for nominatim-initdb to finish"
-        sleep 30
+        log "$1 waiting for nominatim-initdb to finish"
+        sleep "$WFS_SLEEP"
     done
 
     gosu postgres ./utils/update.php --import-osmosis-all

@@ -1,15 +1,29 @@
 #!/bin/sh
 
-echo "$0 called"
+log () {
+    if [ "$1" = "-n" ]; then
+        shift
+        echo -n `date "+%Y-%m-%d %H:%M:%S+%Z"` "-- $0: $@"
+    else
+        echo `date "+%Y-%m-%d %H:%M:%S+%Z"` "-- $0: $@"
+    fi
+}
+
+log_env () {
+    log `env | grep -v PASSWORD`
+}
+
+log starting
 
 # these will only be set if they aren't already set
 : ${NPROCS:=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)}
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
 : ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
 : ${OSM_OSRM:="$OSM_PBF_BASENAME".osrm}
-: ${OSM2PGSQLCACHE:=1000}
 
-export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM OSM2PGSQLCACHE
+export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM
+
+log_env
 
 for U in osm osrm postgres root; do
     if id "$U" > /dev/null 2>&1 && [ ! -f ~"$U"/.pgpass ]; then
@@ -21,3 +35,10 @@ for U in osm osrm postgres root; do
             echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> .pgpass; )
     fi
 done
+
+if [ -d /osm-config.d ]; then
+    for script in /osm-config.d/*.sh; do
+        echo "$0 running $script at" `print_time`
+        . "$script"
+    done
+fi
