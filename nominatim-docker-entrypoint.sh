@@ -17,6 +17,33 @@ if [ "$1" = "postgres" ]; then
     exec docker-entrypoint.sh "$@"
 fi
 
+check_lockfile () {
+    if [ -z "$1" ]; then
+        log "check_lockfile <lockfile> [log prefix]"
+        return 0
+    fi
+    LOCKFILE="$1"
+
+    if [ -f "$LOCKFILE" ]; then
+        log "$2 $LOCKFILE found, previous run didn't finish successfully, rerunning"
+        eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
+        restartcount=$(( $restartcount + 1 ))
+        if [ "$restartcount" -gt 2 ]; then
+            if [ "$restartcount" -gt 24 ]; then
+                restartcount=24
+            fi
+            log "$2 has failed $restartcount times before, sleeping for $(( $restartcount * 3600 )) seconds"
+            sleep $(( $restartcount * 3600 ))
+        fi
+        echo "restartcount=$restartcount" > "$LOCKFILE"
+        return 1
+    fi
+
+    echo "restartcount=0" > "$LOCKFILE"
+    eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
+    return 0
+}
+
 chown osm: /data
 
 # https://github.com/docker/docker/issues/6880
@@ -58,21 +85,7 @@ fi
 if [ "$1" = "nominatim-initdb" ]; then
     log "$1 called"
 
-    if [ -f /data/nominatim-initdb.lock ]; then
-        log "$1 detected previous run exited with errors, rerunning"
-
-        REDOWNLOAD=1
-        eval `grep "reinitcount=[0-9]\+" /data/nominatim-initdb.lock`
-        reinitcount=$(( $reinitcount + 1 ))
-        if [ "$reinitcount" -gt 2 ]; then
-            log "$1 failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
-            sleep $(( $reinitcount * 3600 ))
-        fi
-        echo "reinitcount=$reinitcount" > /data/nominatim-initdb.lock
-    else
-        echo "reinitcount=0" > /data/nominatim-initdb.lock
-        eval `grep "reinitcount=[0-9]\+" /data/nominatim-initdb.lock`
-    fi
+    check_lockfile /data/nominatim-initdb.lock "$1" || REDOWNLOAD=1
 
     until echo select 1 | gosu postgres psql template1 > /dev/null 2>1 ; do
             log "$1 waiting for postgres, sleeping for $WFS_SLEEP seconds"
