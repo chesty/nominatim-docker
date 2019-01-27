@@ -76,6 +76,7 @@ RUN mkfifo -m 600 /Nominatim/build/logpipe && \
     chown www-data /Nominatim/build/logpipe
 
 COPY nominatim-docker-entrypoint.sh /usr/local/bin/
+COPY osm-config.sh /usr/local/etc/
 
 EXPOSE 5432
 EXPOSE 80
