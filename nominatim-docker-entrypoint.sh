@@ -44,7 +44,13 @@ download_nominatim_data () {
 
 }
 
-chown osm: /data
+nominatim-custom-scripts () {
+    if [ -d /nominatim-custom.d ]; then
+        for SCRIPT in /nominatim-custom.d/*.sh; do
+            . "$SCRIPT" "$@"
+        done
+    fi
+}
 
 # https://github.com/docker/docker/issues/6880
 cat <> /Nominatim/build/logpipe 1>&2 &
@@ -156,7 +162,10 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
             gosu postgres ./utils/update.php --init-updates || {
                 log "$1 error initialising database, exit 5"; exit 5; }
     fi
-    rm -f /data/nominatim-initdb.lock
+
+    nominatim-custom-scripts initdb
+
+    > "$LOCKFILE"
     exit 0
 fi
 
