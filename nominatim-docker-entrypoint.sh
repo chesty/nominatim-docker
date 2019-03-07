@@ -98,14 +98,17 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
             sleep "$WFS_SLEEP"
     done
 
-    gosu postgres createuser www-data > /dev/null 2>/dev/null || true
-    gosu postgres createuser -s osm > /dev/null 2>/dev/null || true
+    gosu $POSTGRES_USER createuser www-data > /dev/null 2>/dev/null || true
+    gosu $POSTGRES_USER createuser -s osm > /dev/null 2>/dev/null || true
 
-    if [ ! -f /data/nominatim/country_name.sql ]; then
-        log "$1 setting up /data/nominatim"
-        cd /Nominatim && \
-            gosu osm mkdir -p /data/nominatim && \
-            gosu osm cp -a data/* /data/nominatim
+    if [ ! -f "$DATA_DIR/nominatim/country_name.sql" -o "$REINITDB" ]; then
+        log "$SUBCOMMAND setting up $DATA_DIR/nominatim"
+        (
+            cd /Nominatim && \
+            rm -rf "$DATA_DIR/nominatim" && \
+            gosu osm mkdir "$DATA_DIR/nominatim" && \
+            gosu osm cp -a data/* "$DATA_DIR/nominatim"
+        ) || { log "$SUBCOMMAND error setting up $DATA_DIR/nominatim, exit 10"; exit 10; }
     fi
 
     cd /Nominatim && \
@@ -154,13 +157,13 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
         gosu osm flock "$DATA_DIR/$OSM_PBF".lock true && rm -f "$DATA_DIR/$OSM_PBF".lock
 
         cd /Nominatim/build && \
-            gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
-            gosu postgres ./utils/specialphrases.php --wiki-import | gosu osm tee /data/nominatim/specialphrases.sql > /dev/null && \
-            gosu postgres psql -d nominatim -f /data/nominatim/specialphrases.sql && \
-            gosu postgres ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions && \
-            gosu postgres ./utils/update.php --recompute-word-counts && \
-            gosu postgres ./utils/update.php --init-updates || {
-                log "$1 error initialising database, exit 5"; exit 5; }
+            gosu $POSTGRES_USER ./utils/setup.php --osm-file "$DATA_DIR/$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
+            gosu $POSTGRES_USER ./utils/specialphrases.php --wiki-import | gosu osm tee "$DATA_DIR/nominatim/specialphrases.sql" > /dev/null && \
+            gosu $POSTGRES_USER psql -d nominatim -f "$DATA_DIR/nominatim/specialphrases.sql" && \
+            gosu $POSTGRES_USER ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions && \
+            gosu $POSTGRES_USER ./utils/update.php --recompute-word-counts && \
+            gosu $POSTGRES_USER ./utils/update.php --init-updates || {
+                log "$SUBCOMMAND error initialising database, exit 5"; exit 5; }
     fi
 
     nominatim-custom-scripts initdb
