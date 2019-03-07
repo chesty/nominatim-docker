@@ -2,46 +2,34 @@
 
 set -e
 
-if [ -f /usr/local/etc/osm-config.sh ]; then
-    . /usr/local/etc/osm-config.sh
-else
-    log () {
-        echo -n `date "+%Y-%m-%d %H:%M:%S+%Z"` "-- $0: $@"
-    }
-    log "/usr/local/etc/osm-config.sh not found, $0 might error and exit"
+. /usr/local/etc/osm-config.sh
+
+if [ ! -d "$DATA_DIR" ]; then
+    log "error $DATA_DIR doesn't exist, it's meant to be a volume for persistent storage, exit "
+    exit 28
 fi
 
-log starting
+if [ $# -gt 0 ]; then
+    export SUBCOMMAND="$1"
+    shift
 
-if [ "$1" = "postgres" ]; then
-    exec docker-entrypoint.sh "$@"
+    ensure_single_unique_container "$@" || exit $?
+fi
+
+chown osm: "$DATA_DIR"
+
+log "starting $SUBCOMMAND"
+
+if [ "$SUBCOMMAND" = "postgres" ]; then
+    exec docker-entrypoint.sh postgres "$@"
 fi
 
 check_lockfile () {
     if [ -z "$1" ]; then
-        log "check_lockfile <lockfile> [log prefix]"
-        return 0
-    fi
-    LOCKFILE="$1"
-
-    if [ -f "$LOCKFILE" ]; then
-        log "$2 $LOCKFILE found, previous run didn't finish successfully, rerunning"
-        eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
-        restartcount=$(( $restartcount + 1 ))
-        if [ "$restartcount" -gt 2 ]; then
-            if [ "$restartcount" -gt 24 ]; then
-                restartcount=24
-            fi
-            log "$2 has failed $restartcount times before, sleeping for $(( $restartcount * 3600 )) seconds"
-            sleep $(( $restartcount * 3600 ))
-        fi
-        echo "restartcount=$restartcount" > "$LOCKFILE"
+        log "$SUBCOMMAND download_nominatim_data <filename>"
         return 1
     fi
 
-    echo "restartcount=0" > "$LOCKFILE"
-    eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
-    return 0
 }
 
 chown osm: /data
@@ -49,9 +37,8 @@ chown osm: /data
 # https://github.com/docker/docker/issues/6880
 cat <> /Nominatim/build/logpipe 1>&2 &
 
-if [ "$1" = "nominatim-apache2" ]; then
-    log "$1 called"
-    shift
+if [ "$SUBCOMMAND" = "nominatim-apache2" ]; then
+    log "$SUBCOMMAND called"
 
     . /etc/apache2/envvars
 
@@ -61,8 +48,8 @@ if [ "$1" = "nominatim-apache2" ]; then
             ln -sf /dev/stdout error.log
     fi
 
-    if [ ! -d /data/nominatim ]; then
-        gosu osm mkdir -p /data/nominatim
+    if [ ! -d "$DATA_DIR/nominatim" ]; then
+        gosu osm mkdir -p "$DATA_DIR/nominatim"
     fi
 
     cd /
@@ -82,13 +69,14 @@ if [ "$1" = "nominatim-redownload" ]; then
     REDOWNLOAD=1 exec $0 nominatim-initdb
 fi
 
-if [ "$1" = "nominatim-initdb" ]; then
-    log "$1 called"
+if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
+    log "$SUBCOMMAND called"
 
-    check_lockfile /data/nominatim-initdb.lock "$1" || REDOWNLOAD=1
+    # If it fails 3 times sleep for 3 hours to rate limit how often we try to download from the upstream server
+    check_lockfile "$LOCKFILE" "$SUBCOMMAND" || rate_limit "$LOCKFILE" "$SUBCOMMAND" || REDOWNLOAD=1
 
-    until echo select 1 | gosu postgres psql template1 > /dev/null 2>1 ; do
-            log "$1 waiting for postgres, sleeping for $WFS_SLEEP seconds"
+    until echo select 1 | gosu $POSTGRES_USER psql template1 > /dev/null 2>1 ; do
+            log "$SUBCOMMAND waiting for postgres, sleeping for $WFS_SLEEP seconds"
             sleep "$WFS_SLEEP"
     done
 
@@ -104,31 +92,21 @@ if [ "$1" = "nominatim-initdb" ]; then
 
     cd /Nominatim && \
         rm -rf data && \
-        ln -s /data/nominatim data
+        ln -s "$DATA_DIR/nominatim" data || {
+            log "$SUBCOMMAND error setting up $DATA_DIR/nominatim/data, exit 27"
+            exit 27
+        }
 
     if [ "$REINITDB" -o "$REDOWNLOAD" ]; then
-        log "$1 reinitializing nominatim database, REINITDB=$REINITDB, REDOWNLOAD=$REDOWNLOAD"
-        gosu postgres dropdb nominatim > /dev/null 2>&1 || true
+        log "$SUBCOMMAND reinitializing nominatim database, REINITDB=$REINITDB, REDOWNLOAD=$REDOWNLOAD"
+        gosu $POSTGRES_USER dropdb nominatim > /dev/null 2>&1 || true
     fi
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" | \
-            gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
-        log "$1 downlowding wikipedia and country files"
-        gosu osm curl -L -z /Nominatim/data/country_osm_grid.sql.gz -o /Nominatim/data/country_osm_grid.sql.gz \
-            https://www.nominatim.org/data/country_grid.sql.gz || {
-                log "$1 error downloading https://www.nominatim.org/data/country_grid.sql.gz, exit 2"; exit 2; }
-        gosu osm curl -L -z /data/nominatim/wikipedia_article.sql.bin -o /data/nominatim/wikipedia_article.sql.bin \
-            https://www.nominatim.org/data/wikipedia_article.sql.bin || {
-                log "$1 error downloading https://www.nominatim.org/data/wikipedia_article.sql.bin, exit 3"; exit 3; }
-        gosu osm curl -L -z /data/nominatim/wikipedia_redirect.sql.bin -o /data/nominatim/wikipedia_redirect.sql.bin \
-            https://www.nominatim.org/data/wikipedia_redirect.sql.bin|| {
-                log "$1 error downloading https://www.nominatim.org/data/wikipedia_redirect.sql.bin, exit 4"; exit 4; }
-
-        # this is a noop for a standalone nominatim container, it's used in
-        # https://github.com/chesty/maps-docker-compose
-        until ! test -f /data/renderd-initdb.lock; do
-            log "$1 waiting on renderd-initdb, sleeping for $WFS_SLEEP seconds"
-            sleep "$WFS_SLEEP"
+            gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') || [ "$REINITDB" -o "$REDOWNLOAD" ];then
+        log "$SUBCOMMAND downlowding wikipedia and country files"
+        for file in country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz; do
+            download_nominatim_data "$file" || exit 2
         done
 
         if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
@@ -143,13 +121,18 @@ if [ "$1" = "nominatim-initdb" ]; then
                     rm -f /data/"$OSM_PBF".md5 /data/"$OSM_PBF"
                     exit 1
                 }
+            REPROCESS=1
         fi
         REINITDB=1
     fi
 
     if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
-            gosu postgres psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
-        log "$1 initialising database"
+            gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ];then
+        log "$SUBCOMMAND initialising database"
+
+        # another container could be downloading "$DATA_DIR/$OSM_PBF", so we'll wait for the lock to release
+        gosu osm flock "$DATA_DIR/$OSM_PBF".lock true && rm -f "$DATA_DIR/$OSM_PBF".lock
+
         cd /Nominatim/build && \
             gosu postgres ./utils/setup.php --osm-file /data/"$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" && \
             gosu postgres ./utils/specialphrases.php --wiki-import | gosu osm tee /data/nominatim/specialphrases.sql > /dev/null && \
@@ -163,26 +146,33 @@ if [ "$1" = "nominatim-initdb" ]; then
     exit 0
 fi
 
-if [ "$1" = "nominatim-updatedb" ]; then
-    log "$1 called"
+if [ "$SUBCOMMAND" = "nominatim-updatedb" ]; then
+    log "$SUBCOMMAND called"
 
     # give nominatim-initdb time to start and create lock file
     sleep 5
 
-    until echo select 1 | gosu postgres psql template1 > /dev/null 2>1 ; do
-            log "$1 waiting for postgres, sleeping for $WFS_SLEEP seconds"
+    until echo select 1 | gosu $POSTGRES_USER psql template1 > /dev/null 2>1 ; do
+            log "$SUBCOMMAND waiting for postgres, sleeping for $WFS_SLEEP seconds"
             sleep "$WFS_SLEEP"
     done
 
-    # don't run update during initdb
-    until [ ! -f /data/nominatim-initdb.lock ]; do
-        log "$1 waiting for nominatim-initdb to finish"
+    # the lock file has to exist and be 0 bytes signifying nominatim-initdb has finished before continuing
+    until [ -f "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" -a ! -s "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" ]; do
+        log "$SUBCOMMAND waiting for nominatim-initdb to finish"
         sleep "$WFS_SLEEP"
     done
 
-    gosu postgres ./utils/update.php --import-osmosis-all
+    nominatim-custom-scripts updatedb
+
+    gosu $POSTGRES_USER ./utils/update.php --import-osmosis-all
 
     exit 0
+fi
+
+if [ "$SUBCOMMAND" = "nominatim-command" ]; then
+    log "$SUBCOMMAND called"
+    exec "$@"
 fi
 
 # postgresql container's docker-entrypoint.sh
