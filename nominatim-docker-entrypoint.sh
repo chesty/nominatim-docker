@@ -24,11 +24,23 @@ if [ "$SUBCOMMAND" = "postgres" ]; then
     exec docker-entrypoint.sh postgres "$@"
 fi
 
-check_lockfile () {
+download_nominatim_data () {
     if [ -z "$1" ]; then
         log "$SUBCOMMAND download_nominatim_data <filename>"
         return 1
     fi
+    (
+        gosu osm flock "$DATA_DIR/$1".lock curl --remote-time --location --retry 3 --time-cond "$DATA_DIR/$1" \
+            --silent --show-error --output "$DATA_DIR/$1" https://www.nominatim.org/data/"$1" || {
+                log "$SUBCOMMAND error downloading https://www.nominatim.org/data/$1"
+                return 2
+            }
+        rm -f "$DATA_DIR/$1".lock
+        cd "$DATA_DIR/nominatim" && gosu osm ln -sf ../"$1"
+    ) || {
+            log "$SUBCOMMAND error setting up nominatim_data files in $DATA_DIR/nominatim"
+            return 3
+         }
 
 }
 
@@ -109,17 +121,19 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
             download_nominatim_data "$file" || exit 2
         done
 
-        if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
-            log "$1 downloading $OSM_PBF_URL"
-            gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL" || {
-                log "$1 error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
-            gosu osm curl -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
-                log "$1 error downloading $OSM_PBF_URL, exit 8"; exit 8; }
-            ( cd /data && \
-                md5sum -c "$OSM_PBF".md5 ) || {
-                    log "$1 md5sum mismatch on /data/$OSM_PBF, exit 1"
-                    rm -f /data/"$OSM_PBF".md5 /data/"$OSM_PBF"
-                    exit 1
+        if [ "$REDOWNLOAD" -o ! -f "$DATA_DIR/$OSM_PBF" ]; then
+            log "$SUBCOMMAND downloading $OSM_PBF_URL"
+            gosu osm flock "$DATA_DIR/$OSM_PBF".lock curl --remote-time --location --retry 3 --time-cond "$DATA_DIR/$OSM_PBF" \
+                --silent --show-error --output "$DATA_DIR/$OSM_PBF" "$OSM_PBF_URL" || {
+                log "$SUBCOMMAND error downloading $OSM_PBF_URL, exit 8"; exit 8; }
+            rm -f "$DATA_DIR/$OSM_PBF".lock
+            gosu osm curl -L -o "$DATA_DIR/$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
+                log "$SUBCOMMAND error downloading ${OSM_PBF_URL}.md5, exit 9"; exit 9; }
+            ( cd "$DATA_DIR" && \
+                gosu osm md5sum -c "$OSM_PBF".md5 ) || {
+                    rm -f "$DATA_DIR/$OSM_PBF".md5 "$DATA_DIR/$OSM_PBF"
+                    log "$SUBCOMMAND error md5sum mismatch on $DATA_DIR/$OSM_PBF, exit 4"
+                    exit 4
                 }
             REPROCESS=1
         fi
