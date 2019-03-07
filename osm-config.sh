@@ -51,3 +51,71 @@ if [ -d /osm-config.d ]; then
         . "$script"
     done
 fi
+
+config_specific_name () {
+    if [ -z "$1" ]; then
+        echo "$1 error config_specific_name <SUBCOMMAND>"
+        return 1
+    fi
+    echo "$(basename $0)-$1-$POSTGRES_HOST-$POSTGRES_PORT-$POSTGRES_DB-$POSTGRES_USER" | tr -d '\000'  | tr -d '/'
+}
+
+check_lockfile () {
+    if [ -z "$1" ]; then
+        log "$SUBCOMMAND error check_lockfile <lockfile> [log prefix]"
+        return 1
+    fi
+
+    LCK="$1"
+    if [ -s "$LCK" ]; then
+        log "$SUBCOMMAND $2 detected previous run didn't finish successfully"
+        eval `grep "restartcount=[0-9]\+" "$LCK"`
+        restartcount=$(( $restartcount + 1 ))
+        echo "restartcount=$restartcount" > "$LCK"
+        return 1
+    fi
+
+    echo "restartcount=0" > "$LCK"
+    eval `grep "restartcount=[0-9]\+" "$LCK"`
+    return 0
+}
+
+rate_limit () {
+    if [ -z "$1" ]; then
+        log "$SUBCOMMAND error rate_limit <lockfile> [log prefix]"
+        return 1
+    fi
+
+    LCK="$1"
+    if [ -s "$LCK" ]; then
+        eval `grep "restartcount=[0-9]\+" "$LCK"`
+        if [ "$restartcount" -gt 2 ]; then
+            if [ "$restartcount" -gt 24 ]; then
+                log "$SUBCOMMAND $2 failed more that 24 times, only sleeping for 24 hours"
+                restartcount=24
+            fi
+            log "$SUBCOMMAND $2 sleeping for $(( $restartcount * 3600 )) seconds"
+            sleep $(( $restartcount * 3600 ))
+        fi
+        return 1
+    fi
+    return 0
+}
+
+ensure_single_unique_container () {
+    LOCKFILE="$DATA_DIR/$(config_specific_name "$SUBCOMMAND").lock"
+
+    if [ "${FLOCKER}" != "$LOCKFILE" ]; then
+        env FLOCKER="$LOCKFILE" flock -E 111 -Fen "$LOCKFILE" "$0" "$SUBCOMMAND" "$@" || EC=$?
+        if [ "$EC" = 111 ]; then
+            log "$SUBCOMMAND error already running, exit 19"
+            return 19
+        fi
+        if [ -n "$EC" ]; then
+            return $EC
+        fi
+        # we shouldn't get to this point, "$0" either exits or exec's a command
+        # but we'll exit so "$0" doesn't run twice
+        exit
+    fi
+}
