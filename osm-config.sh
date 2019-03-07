@@ -20,8 +20,9 @@ log "starting osm-config.sh"
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
 : ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
 : ${OSM_OSRM:="$OSM_PBF_BASENAME".osrm}
+: ${DATA_DIR:="/data"}
 
-export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM
+export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM DATA_DIR
 
 log_env
 
