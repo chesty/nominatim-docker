@@ -26,8 +26,11 @@ export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM DATA_DIR
 
 log_env
 
-for U in osm osrm postgres root; do
-    if id "$U" > /dev/null 2>&1 && [ ! -f ~"$U"/.pgpass ]; then
+for U in osm osrm postgres root "$POSTGRES_USER"; do
+    if ! id "$U" >/dev/null 2>&1; then
+        useradd -ms /bin/bash "$U"
+    fi
+    if [ ! -f ~"$U"/.pgpass ]; then
         if [ ! -d ~ ]; then
             mkdir -p ~
             chown "$U": ~
