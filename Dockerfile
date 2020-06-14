@@ -1,17 +1,19 @@
-FROM postgres:10 as buildstage
+FROM hammermc/postgis-docker:12 as buildstage
 
-ENV BUMP 2019012101
+ENV BUMP 2020061001
 
 RUN apt-get update && \
-    apt-get -y install \
+    DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
+        apache2 \
         build-essential \
         cmake \
         curl \
         g++ \
         git \
+        libapache2-mod-php \
         libboost-all-dev \
+        libboost-dev \
         libboost-filesystem-dev \
-        libboost-python-dev \
         libboost-system-dev \
         libbz2-dev \
         libexpat1-dev \
@@ -20,20 +22,25 @@ RUN apt-get update && \
         libpq-dev \
         libproj-dev \
         libxml2-dev \
+        php \
         php-cli \
         php-dev \
-        postgresql-10-postgis-2.4 \
-        postgresql-10-postgis-2.4-scripts \
+        php-intl \
+        php-pgsql \
+        postgresql-12-postgis-3 \
+        postgresql-12-postgis-3-scripts \
         postgresql-contrib \
-        postgresql-server-dev-10 \
-        python-pip \
+        postgresql-server-dev-12 \
+        python3-dev \
         python3-pip \
+        python3-psycopg2 \
+        python3-setuptools \
+        python3-tidylib \
         zlib1g-dev
 
 RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git
 
 RUN pip3 install osmium
-RUN pip install osmium
 
 RUN cd Nominatim && \
     git submodule update --recursive --init
@@ -45,28 +52,33 @@ RUN cd Nominatim && \
     make && \
     make install
 
-FROM postgres:10 as runstage
+FROM hammermc/postgis-docker:12 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
 COPY --from=buildstage /Nominatim /Nominatim
 
 RUN apt-get update && \
-    apt-get -y install \
+    DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
         apache2 \
+        ca-certificates \
         curl \
+        gosu \
         libapache2-mod-php \
-        libboost-filesystem1.62.0 \
-        libboost-python1.62.0 \
-        libboost-system1.62.0 \
-        libproj12 \
-        postgresql-10-pgrouting \
-        postgresql-10-pgrouting-scripts \
-        postgresql-10-postgis \
-        postgresql-10-postgis-scripts \
-        postgresql-contrib \
+        libboost-filesystem1.71.0 \
+        libboost-python1.71.0 \
+        libboost-system1.71.0 \
+        libproj15 \
+        osmium-tool \
         php-cli \
         php-db \
         php-intl \
-        php-pgsql && \
+        php-pgsql \
+        postgresql-12-postgis-3 \
+        postgresql-12-postgis-3-scripts \
+        postgresql-client-12 \
+        postgresql-contrib \
+        pyosmium \
+        python3 \
+        python3-psycopg2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
 
