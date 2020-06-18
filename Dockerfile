@@ -1,6 +1,6 @@
 FROM hammermc/postgis-docker:12 as buildstage
 
-ENV BUMP 2020061001
+ENV BUMP 20.06.18.1
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
