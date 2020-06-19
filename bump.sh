@@ -2,18 +2,27 @@
 
 set -x
 
-for b in master 12; do
-	git checkout $b
+bump() {
+  BRANCH="$1"
+  if [ -z "$BRANCH" ]; then
+    echo "usage: $0 <branch>"
+    exit 1
+  fi
 
-	if git status | grep -q 'modified:'; then
-    	echo "modified files detected, commit or stash and rerun"
-    	exit 1
-	fi 
+  if git status | grep -q 'modified:'; then
+    echo "modified files detected, commit or stash and rerun"
+    exit 2
+  fi
 
-	DATE=`date +%y.%m.%d.1`
+  git checkout "$BRANCH"
+  git pull "$BRANCH"
 
-	sed -i "s/ENV BUMP .*/ENV BUMP $DATE/" Dockerfile 
-	git stage Dockerfile
-	git commit -m "bump $DATE"
-	git push origin $b
-done
+  DATE=$(date +%Y%m%d.1)
+
+  sed -i "s/ENV BUMP .*/ENV BUMP $DATE/" Dockerfile
+  git stage Dockerfile
+  git commit -m "bump $DATE"
+  git push origin "$BRANCH"
+}
+
+bump master
