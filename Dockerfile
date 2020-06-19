@@ -1,6 +1,6 @@
 FROM hammermc/postgis-docker:12 as buildstage
 
-ENV BUMP 20.06.18.1
+ENV BUMP 20.06.19.1
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
@@ -33,16 +33,10 @@ RUN apt-get update && \
         postgresql-server-dev-12 \
         python3-dev \
         python3-pip \
-        python3-psycopg2 \
-        python3-setuptools \
-        python3-tidylib \
         zlib1g-dev
 
-RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git
-
-RUN pip3 install osmium
-
-RUN cd Nominatim && \
+RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git && \
+    cd Nominatim && \
     git submodule update --recursive --init
 
 RUN cd Nominatim && \
@@ -63,11 +57,10 @@ RUN apt-get update && \
         curl \
         gosu \
         libapache2-mod-php \
-        libboost-filesystem1.71.0 \
-        libboost-python1.71.0 \
-        libboost-system1.71.0 \
-        libproj15 \
-        osmium-tool \
+        libboost-filesystem1.67.0 \
+        libboost-python1.67.0 \
+        libboost-system1.67.0 \
+        libproj13 \
         php-cli \
         php-db \
         php-intl \
@@ -76,11 +69,26 @@ RUN apt-get update && \
         postgresql-12-postgis-3-scripts \
         postgresql-client-12 \
         postgresql-contrib \
-        pyosmium \
         python3 \
-        python3-psycopg2 && \
-    apt-get clean && \
+        python3-pip && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
+
+RUN set -ex; \
+	\
+    apt-get update; \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	    build-essential \
+	    libpq5 \
+	    libpq-dev \
+	    python3-dev; \
+	python3 -m pip install wheel setuptools; \
+	python3 -m pip install osmium psycopg2 pytidylib; \
+	apt-get purge -y \
+	    build-essential \
+	    libpq-dev \
+	    python3-dev; \
+    apt-get autoremove --purge -y; \
+    rm -rf /var/lib/apt/lists/*
 
 RUN useradd -ms /bin/bash osm
 RUN chown postgres /Nominatim/build
