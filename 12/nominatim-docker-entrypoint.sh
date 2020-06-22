@@ -134,26 +134,34 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
     }
   }
 
-  if [ "$REINITDB" -o "$REDOWNLOAD" ]; then
+  if [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ] || [ "$REDOWNLOAD" ]; then
     log "$SUBCOMMAND reinitializing nominatim database, REINITDB=$REINITDB, REDOWNLOAD=$REDOWNLOAD"
     gosu $POSTGRES_USER dropdb nominatim >/dev/null 2>&1 || true
   fi
 
   if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" |
-    gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') || [ "$REINITDB" -o "$REDOWNLOAD" ]; then
+    gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') ||
+    [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ] || [ "$REDOWNLOAD" ]; then
     log "$SUBCOMMAND downlowding wikipedia and country files"
+    rm -f "/data/$0-REINITDB"
     for file in wikimedia-importance.sql.gz country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz; do
-      download_nominatim_data "$file" || exit 2
+      download_nominatim_data "$file" || {
+        touch "/data/$0-REINITDB"
+        log "$SUBCOMMAND error downloading wikipedia data, exit 2"
+        exit 2
+      }
     done
 
-    if [ "$REDOWNLOAD" -o ! -f "$DATA_DIR/$OSM_PBF" ]; then
+    if [ "$REDOWNLOAD" ] || [ ! -f "$DATA_DIR/$OSM_PBF" ]; then
       log "$SUBCOMMAND downloading $OSM_PBF_URL"
       download "$OSM_PBF_URL" || {
         log "$SUBCOMMAND error downloading $OSM_PBF_URL, exit 8"
+        rm -f "$DATA_DIR/$OSM_PBF".md5 "$DATA_DIR/$OSM_PBF"
         exit 8
       }
       donwload "$OSM_PBF_URL".md5 || {
         log "$SUBCOMMAND error downloading ${OSM_PBF_URL}.md5, exit 9"
+        rm -f "$DATA_DIR/$OSM_PBF".md5 "$DATA_DIR/$OSM_PBF"
         exit 9
       }
       (cd "$DATA_DIR" &&
@@ -168,8 +176,10 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
   fi
 
   if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" |
-    gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') || [ "$REINITDB" ]; then
+    gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') ||
+    [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ]; then
     log "$SUBCOMMAND initialising database"
+    rm -f "/data/$0-REINITDB"
 
     # another container could be downloading "$DATA_DIR/$OSM_PBF", so we'll wait for the lock to release
     gosu osm flock "$DATA_DIR/$OSM_PBF".lock true && rm -f "$DATA_DIR/$OSM_PBF".lock
@@ -182,12 +192,14 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
       gosu $POSTGRES_USER ./utils/update.php --recompute-word-counts &&
       gosu $POSTGRES_USER ./utils/update.php --init-updates || {
       log "$SUBCOMMAND error initialising database, exit 5"
+      touch "/data/$0-REINITDB"
       exit 5
     }
   fi
 
   nominatim_custom_scripts initdb
-
+  rm -f "/data/$0-REINITDB"
+  # nominatim-updatedb checks $LOCKFILE exists and is 0 bytes before updating
   >"$LOCKFILE"
   exit 0
 fi
@@ -204,7 +216,7 @@ if [ "$SUBCOMMAND" = "nominatim-updatedb" ]; then
   done
 
   # the lock file has to exist and be 0 bytes signifying nominatim-initdb has finished before continuing
-  until [ -f "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" -a ! -s "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" ]; do
+  until [ -f "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" ] && [ ! -s "$DATA_DIR/$(config_specific_name nominatim-initdb).lock" ]; do
     log "$SUBCOMMAND waiting for nominatim-initdb to finish"
     sleep "$WFS_SLEEP"
   done
