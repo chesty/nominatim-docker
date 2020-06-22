@@ -19,8 +19,10 @@ bump() {
 
   DATE=$(date +%Y%m%d.1)
 
-  sed -i "s/ENV BUMP .*/ENV BUMP $DATE/" Dockerfile
-  git stage Dockerfile
+  for DF in `find -name 'Dockerfile'`; do
+  	sed -i "s/ENV BUMP .*/ENV BUMP $DATE/" "$DF"
+    git stage "$DF"
+  done
   git commit -m "bump $DATE"
   git push origin "$BRANCH"
 }
