@@ -17,12 +17,23 @@ log "starting osm-config.sh"
 
 # these will only be set if they aren't already set
 : ${NPROCS:=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)}
+: ${OSM_PBF_URL:="http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf"}
+: ${OSM_PBF_UPDATE_URL:="http://download.geofabrik.de/australia-oceania/australia-updates"}
 : ${OSM_PBF:=$(basename "$OSM_PBF_URL")}
 : ${OSM_PBF_BASENAME:=$(basename "$OSM_PBF" .osm.pbf)}
 : ${OSM_OSRM:="$OSM_PBF_BASENAME".osrm}
-: ${DATA_DIR:="/data"}
+: ${OSM2PGSQLCACHE:="2000"}
+: ${POSTGRES_PASSWORD:="supersecret"}
+: ${POSTGRES_HOST:="postgres"}
+: ${POSTGRES_USER:="postgres"}
+: ${POSTGRES_DB:="gis"}
+: ${POSTGRES_PORT:="5432"}
+: ${WFS_SLEEP:="30"}
+: ${RENDERD_UPDATE_SLEEP:="86400"}
 
-export NPROCS OSM_PBF OSM_PBF_BASENAME OSM_OSRM DATA_DIR
+export NPROCS OSM_PBF_URL OSM_PBF_UPDATE_URL OSM_PBF OSM_PBF_BASENAME OSM_OSRM OSM_PBF OSM_PBF_BASENAME \
+  OSM2PGSQLCACHE POSTGRES_PASSWORD  POSTGRES_HOST POSTGRES_DB POSTGRES_PORT WFS_SLEEP \
+  RENDERD_UPDATE_SLEEP
 
 log_env
 
@@ -30,6 +41,7 @@ for U in osm osrm postgres root "$POSTGRES_USER"; do
     if ! id "$U" >/dev/null 2>&1; then
         useradd -ms /bin/bash "$U"
     fi
+
     if [ ! -f ~"$U"/.pgpass ]; then
         if [ ! -d ~ ]; then
             mkdir -p ~
@@ -100,6 +112,29 @@ rate_limit () {
         return 1
     fi
     return 0
+}
+
+wait_for_server () {
+    server_host=$1
+    server_port=$2
+    : ${WFS_SLEEP:=15}
+    while true; do
+        log -n "Checking $server_host $server_port status... "
+
+        if nc -zu "$server_host" 1 | grep -q "Unknown host"; then
+            log "host $server_host not found, returning 1"
+            return 1
+        fi
+
+        nc -z "$server_host" "$server_port" || {
+            echo "$server_host is warming up. Trying again in $WFS_SLEEP seconds..."
+            sleep $WFS_SLEEP
+            continue
+        }
+
+        echo "$server_host is running and ready to process requests"
+        return 0
+    done
 }
 
 ensure_single_unique_container () {
