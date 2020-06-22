@@ -1,6 +1,7 @@
 # nominatim-docker
 
-- hammermc/nominatim-docker:latest dev
+- hammermc/nominatim-docker:latest atm postgres 12 nominatim master 
+- hammermc/nominatim-docker:12 postgres 12 nominatim master 
 - hammermc/nominatim-docker:release-3.2.0 release-v3.2.0
 
 It works as a standalone nominatim docker container and it should 
