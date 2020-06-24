@@ -134,19 +134,19 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
     }
   }
 
-  if [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ] || [ "$REDOWNLOAD" ]; then
+  if [ "$REINITDB" ] || [ -f "/data/nominatim-REINITDB" ] || [ "$REDOWNLOAD" ]; then
     log "$SUBCOMMAND reinitializing nominatim database, REINITDB=$REINITDB, REDOWNLOAD=$REDOWNLOAD"
     gosu $POSTGRES_USER dropdb nominatim >/dev/null 2>&1 || true
   fi
 
   if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" |
     gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') ||
-    [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ] || [ "$REDOWNLOAD" ]; then
+    [ "$REINITDB" ] || [ -f "/data/nominatim-REINITDB" ] || [ "$REDOWNLOAD" ]; then
     log "$SUBCOMMAND downlowding wikipedia and country files"
-    rm -f "/data/$0-REINITDB"
+    rm -f "/data/nomintaim-REINITDB"
     for file in wikimedia-importance.sql.gz country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz; do
       download_nominatim_data "$file" || {
-        touch "/data/$0-REINITDB"
+        touch "/data/nominatim-REINITDB"
         log "$SUBCOMMAND error downloading wikipedia data, exit 2"
         exit 2
       }
@@ -159,7 +159,7 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
         rm -f "$DATA_DIR/$OSM_PBF".md5 "$DATA_DIR/$OSM_PBF"
         exit 8
       }
-      donwload "$OSM_PBF_URL".md5 || {
+      download "$OSM_PBF_URL".md5 || {
         log "$SUBCOMMAND error downloading ${OSM_PBF_URL}.md5, exit 9"
         rm -f "$DATA_DIR/$OSM_PBF".md5 "$DATA_DIR/$OSM_PBF"
         exit 9
@@ -177,9 +177,9 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
 
   if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" |
     gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') ||
-    [ "$REINITDB" ] || [ -f "/data/$0-REINITDB" ]; then
+    [ "$REINITDB" ] || [ -f "/data/nominatim-REINITDB" ]; then
     log "$SUBCOMMAND initialising database"
-    rm -f "/data/$0-REINITDB"
+    rm -f "/data/nominatim-REINITDB"
 
     # another container could be downloading "$DATA_DIR/$OSM_PBF", so we'll wait for the lock to release
     gosu osm flock "$DATA_DIR/$OSM_PBF".lock true && rm -f "$DATA_DIR/$OSM_PBF".lock
@@ -192,13 +192,13 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
       gosu $POSTGRES_USER ./utils/update.php --recompute-word-counts &&
       gosu $POSTGRES_USER ./utils/update.php --init-updates || {
       log "$SUBCOMMAND error initialising database, exit 5"
-      touch "/data/$0-REINITDB"
+      touch "/data/nominatim-REINITDB"
       exit 5
     }
   fi
 
   nominatim_custom_scripts initdb
-  rm -f "/data/$0-REINITDB"
+  rm -f "/data/nominatim-REINITDB"
   # nominatim-updatedb checks $LOCKFILE exists and is 0 bytes before updating
   >"$LOCKFILE"
   exit 0
