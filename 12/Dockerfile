@@ -35,6 +35,17 @@ RUN apt-get update && \
         python3-pip \
         zlib1g-dev
 
+RUN set -ex; \
+	\
+    apt-get update; \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	    build-essential \
+	    libpq5 \
+	    libpq-dev \
+	    python3-dev; \
+	python3 -m pip install wheel setuptools; \
+	python3 -m pip install osmium psycopg2 pytidylib
+
 RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git && \
     cd Nominatim && \
     git submodule update --recursive --init
