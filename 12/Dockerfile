@@ -1,6 +1,6 @@
 FROM hammermc/postgis-docker:12 as buildstage
 
-ENV BUMP 20200623.1
+ENV BUMP 20200630
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
@@ -68,10 +68,10 @@ RUN apt-get update && \
         curl \
         gosu \
         libapache2-mod-php \
-        libboost-filesystem1.67.0 \
-        libboost-python1.67.0 \
-        libboost-system1.67.0 \
-        libproj13 \
+        libboost-filesystem1.71.0 \
+        libboost-python1.71.0 \
+        libboost-system1.71.0 \
+        libproj15 \
         php-cli \
         php-db \
         php-intl \
