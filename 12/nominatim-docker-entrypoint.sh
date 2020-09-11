@@ -93,6 +93,11 @@ if [ "$SUBCOMMAND" = "nominatim-apache2" ]; then
       ln -sf /dev/stdout error.log
   fi
 
+  # Not sure where settings.php comes from, but `php utils/setup.php --setup-website`
+  # expects settings-frontend.php otherwise requests to nominatim respond with HTTP 500
+  cd /Nominatim/build/settings &&
+    ln -s settings.php settings-frontend.php
+
   cd /
 
   mkdir -p "$APACHE_RUN_DIR" &&
