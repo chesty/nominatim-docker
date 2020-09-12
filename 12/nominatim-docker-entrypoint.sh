@@ -85,6 +85,10 @@ cat <>/Nominatim/build/logpipe 1>&2 &
 if [ "$SUBCOMMAND" = "nominatim-apache2" ]; then
   log "$SUBCOMMAND called"
 
+  # generates settings/settings-frontend.php
+  cd /Nominatim/build &&
+    php ./utils/setup.php --setup-website
+
   . /etc/apache2/envvars
 
   if [ ! -z "$APACHE_LOG_DIR" ]; then
@@ -92,11 +96,6 @@ if [ "$SUBCOMMAND" = "nominatim-apache2" ]; then
       ln -sf /dev/stdout access.log &&
       ln -sf /dev/stdout error.log
   fi
-
-  # Not sure where settings.php comes from, but `php utils/setup.php --setup-website`
-  # expects settings-frontend.php otherwise requests to nominatim respond with HTTP 500
-  cd /Nominatim/build/settings &&
-    ln -s settings.php settings-frontend.php
 
   cd /
 
