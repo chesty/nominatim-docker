@@ -148,7 +148,7 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
     [ "$REINITDB" ] || [ -f "/data/nominatim-REINITDB" ] || [ "$REDOWNLOAD" ]; then
     log "$SUBCOMMAND downloading wikipedia and country files"
     rm -f "/data/nomintaim-REINITDB"
-    for file in wikimedia-importance.sql.gz country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz; do
+    for file in wikimedia-importance.sql.gz country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz us_postcode_data.sql.gz; do
       download_nominatim_data "$file" || {
         touch "/data/nominatim-REINITDB"
         log "$SUBCOMMAND error downloading wikipedia data, exit 2"
