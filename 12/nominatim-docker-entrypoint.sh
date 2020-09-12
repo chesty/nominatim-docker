@@ -189,10 +189,9 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
     gosu osm flock "$DATA_DIR/$OSM_PBF".lock true && rm -f "$DATA_DIR/$OSM_PBF".lock
 
     cd /Nominatim/build &&
-      gosu $POSTGRES_USER ./utils/setup.php --osm-file "$DATA_DIR/$OSM_PBF" --all --osm2pgsql-cache "$OSM2PGSQLCACHE" &&
+      gosu $POSTGRES_USER ./utils/setup.php --osm-file "$DATA_DIR/$OSM_PBF" --threads "$NPROCS" --osm2pgsql-cache "$OSM2PGSQLCACHE" --all &&
       gosu $POSTGRES_USER ./utils/specialphrases.php --wiki-import | gosu osm tee "$DATA_DIR/nominatim/specialphrases.sql" >/dev/null &&
       gosu $POSTGRES_USER psql -d nominatim -f "$DATA_DIR/nominatim/specialphrases.sql" &&
-      gosu $POSTGRES_USER ./utils/setup.php --create-functions --enable-diff-updates --create-partition-functions &&
       gosu $POSTGRES_USER ./utils/update.php --recompute-word-counts &&
       gosu $POSTGRES_USER ./utils/update.php --init-updates || {
       log "$SUBCOMMAND error initialising database, exit 5"
