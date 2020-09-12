@@ -146,7 +146,7 @@ if [ "$SUBCOMMAND" = "nominatim-initdb" ]; then
   if ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'country_osm_grid'" |
     gosu $POSTGRES_USER psql nominatim | grep -q 'tables already created') ||
     [ "$REINITDB" ] || [ -f "/data/nominatim-REINITDB" ] || [ "$REDOWNLOAD" ]; then
-    log "$SUBCOMMAND downlowding wikipedia and country files"
+    log "$SUBCOMMAND downloading wikipedia and country files"
     rm -f "/data/nomintaim-REINITDB"
     for file in wikimedia-importance.sql.gz country_grid.sql.gz wikipedia_article.sql.bin wikipedia_redirect.sql.bin gb_postcode_data.sql.gz; do
       download_nominatim_data "$file" || {
