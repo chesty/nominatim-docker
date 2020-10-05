@@ -29,7 +29,7 @@ RUN apt-get update && \
         php-pgsql \
         postgresql-13-postgis-3 \
         postgresql-13-postgis-3-scripts \
-        postgresql-contrib \
+        postgresql-contrib-13 \
         postgresql-server-dev-13 \
         python3-dev \
         python3-pip \
@@ -79,7 +79,7 @@ RUN apt-get update && \
         postgresql-13-postgis-3 \
         postgresql-13-postgis-3-scripts \
         postgresql-client-13 \
-        postgresql-contrib \
+        postgresql-contrib-13 \
         python3 \
         python3-pip && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
