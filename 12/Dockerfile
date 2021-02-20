@@ -28,6 +28,7 @@ RUN apt-get update && \
         php-dev \
         php-intl \
         php-pgsql \
+        php-symfony \
         postgresql-12-postgis-3 \
         postgresql-12-postgis-3-scripts \
         postgresql-contrib-12 \
@@ -59,6 +60,7 @@ RUN cd Nominatim && \
     cd build && \
     cmake .. && \
     make && \
+    ./utils/setup.php --setup-website && \
     make install
 
 FROM hammermc/postgis-docker:12 as runstage
@@ -81,6 +83,7 @@ RUN apt-get update && \
         php-db \
         php-intl \
         php-pgsql \
+        php-symfony \
         postgresql-12-postgis-3 \
         postgresql-12-postgis-3-scripts \
         postgresql-client-12 \
