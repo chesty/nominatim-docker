@@ -23,6 +23,7 @@ RUN apt-get update && \
         libproj-dev \
         libxml2-dev \
         php \
+        php-cgi \
         php-cli \
         php-dev \
         php-intl \
@@ -33,6 +34,7 @@ RUN apt-get update && \
         postgresql-server-dev-12 \
         python3-dev \
         python3-pip \
+        wget \
         zlib1g-dev
 
 RUN set -ex; \
@@ -48,7 +50,9 @@ RUN set -ex; \
 
 RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git && \
     cd Nominatim && \
-    git submodule update --recursive --init
+    git submodule update --recursive --init && \
+    wget -O /Nominatim/data/country_osm_grid.sql.gz https://www.nominatim.org/data/country_grid.sql.gz
+
 
 RUN cd Nominatim && \
     mkdir -p build && \
@@ -72,6 +76,7 @@ RUN apt-get update && \
         libboost-python1.71.0 \
         libboost-system1.71.0 \
         libproj15 \
+        php-cgi \
         php-cli \
         php-db \
         php-intl \
