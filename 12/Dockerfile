@@ -34,6 +34,8 @@ RUN apt-get update && \
         postgresql-contrib-12 \
         postgresql-server-dev-12 \
         python3-dev \
+        python3-dotenv \
+        python3-dotenv-cli \
         python3-pip \
         wget \
         zlib1g-dev
@@ -49,18 +51,15 @@ RUN set -ex; \
 	python3 -m pip install wheel setuptools; \
 	python3 -m pip install osmium psycopg2 pytidylib
 
-RUN git clone --depth 1 --branch master --single-branch https://github.com/openstreetmap/Nominatim.git && \
+RUN git clone --depth 1 --branch 3.5.x --single-branch https://github.com/openstreetmap/Nominatim.git && \
     cd Nominatim && \
-    git submodule update --recursive --init && \
-    wget -O /Nominatim/data/country_osm_grid.sql.gz https://www.nominatim.org/data/country_grid.sql.gz
-
+    git submodule update --recursive --init
 
 RUN cd Nominatim && \
     mkdir -p build && \
     cd build && \
     cmake .. && \
     make && \
-    ./utils/setup.php --setup-website && \
     make install
 
 FROM hammermc/postgis-docker:12 as runstage
@@ -89,6 +88,8 @@ RUN apt-get update && \
         postgresql-client-12 \
         postgresql-contrib-12 \
         python3 \
+        python3-dotenv \
+        python3-dotenv-cli \
         python3-pip && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /src
 
